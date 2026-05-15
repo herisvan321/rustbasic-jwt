@@ -1,0 +1,38 @@
+[package]
+name = "rustbasic-jwt"
+version = "0.0.2"
+edition = "2024"
+build = "build.rs"
+description = "JWT authentication package for the RustBasic Framework."
+license = "MIT"
+repository = "https://github.com/herisvan321/rustbasic-jwt"
+readme = "README.md"
+keywords = ["web", "framework", "jwt", "auth", "authentication"]
+categories = ["web-programming"]
+
+[lib]
+name = "rustbasic_jwt"
+path = "src/lib.rs"
+
+[dependencies]
+rustbasic-core = "0.1.4"
+sea-orm = { version = "1.1.4", features = ["macros", "with-chrono"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.140"
+tokio = { version = "1.52.1", features = ["full"] }
+axum = "0.8.9"
+async-trait = "0.1.86"
+tracing = "0.1.44"
+colored = "3.0.0"
+chrono = "0.4.39"
+http = "1.2.0"
+jsonwebtoken = "9.3.0"
+bcrypt = "0.17.0"
+uuid = { version = "1.11.0", features = ["v4", "serde"] }
+tower = "0.5.2"
+tower-http = { version = "0.6.2", features = ["auth"] }
+
+[build-dependencies]
+chrono = "0.4.39"
+uuid = { version = "1.11.0", features = ["v4"] }
+
