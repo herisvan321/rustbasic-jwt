@@ -17,7 +17,7 @@ Add `rustbasic-jwt` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustbasic-jwt = "0.0.2"
+rustbasic-jwt = "0.0.3"
 ```
 
 ## Configuration
