@@ -1,98 +1,43 @@
-use axum::{
-    extract::Request,
-    middleware::Next,
-    response::Response,
-    http::{StatusCode, HeaderMap},
-    Json,
-};
+use rustbasic_core::requests::Request;
+use rustbasic_core::middleware::Next;
+use rustbasic_core::router::Response;
+use rustbasic_core::responses::ResponseHelper;
 use crate::service::JwtService;
-use serde_json::json;
-use axum::extract::State;
-use sea_orm::DatabaseConnection;
-use rustbasic_core::server::AppState;
 use crate::claims::Claims;
 
-pub trait HasDatabase {
-    fn db(&self) -> DatabaseConnection;
+tokio::task_local! {
+    pub static CURRENT_USER: Claims;
 }
 
-impl HasDatabase for AppState {
-    fn db(&self) -> DatabaseConnection {
-        self.db.clone()
-    }
+/// Helper function to retrieve the currently authenticated user's claims in request scope
+pub fn get_current_user() -> Option<Claims> {
+    CURRENT_USER.try_with(|c| c.clone()).ok()
 }
 
-pub async fn jwt_auth_middleware<S>(
-    state: State<S>,
-    headers: HeaderMap,
-    mut request: Request,
+/// Middleware to extract client's Bearer token, validate it, and bind claims to request scope
+pub async fn jwt_auth_middleware(
+    req: Request,
     next: Next,
-) -> Result<Response, (StatusCode, Json<serde_json::Value>)> 
-where
-    S: HasDatabase + Clone + Send + Sync + 'static
-{
-    let auth_header = headers
-        .get("Authorization")
-        .and_then(|h| h.to_str().ok())
+) -> Response {
+    let auth_header = req.headers
+        .get("authorization")
         .filter(|h| h.starts_with("Bearer "));
 
     let token = match auth_header {
         Some(header) => &header[7..],
         None => {
-            return Err((
-                StatusCode::UNAUTHORIZED,
-                Json(json!({
-                    "status": "error",
-                    "message": "Token not provided"
-                })),
-            ));
+            return ResponseHelper::error("Token not provided");
         }
     };
 
-    let jwt_service = JwtService::new().with_db(state.db());
+    let jwt_service = JwtService::new().with_db(req.state.db.clone());
     match jwt_service.validate_token(token).await {
         Ok(claims) => {
-            // Insert claims into request extensions so controllers can access it
-            request.extensions_mut().insert(claims);
-            Ok(next.run(request).await)
+            // Bind claims to task-local context so it is available thread-safely throughout the request lifetime
+            CURRENT_USER.scope(claims, next.run(req)).await
         }
         Err(e) => {
-            let message = format!("Invalid token: {}", e);
-            Err((
-                StatusCode::UNAUTHORIZED,
-                Json(json!({
-                    "status": "error",
-                    "message": message
-                })),
-            ))
-        }
-    }
-}
-
-use axum::{
-    extract::FromRequestParts,
-};
-use http::request::Parts;
-
-pub struct AuthUser(pub Claims);
-
-impl<S> FromRequestParts<S> for AuthUser
-where
-    S: Send + Sync,
-{
-    type Rejection = (StatusCode, Json<serde_json::Value>);
-
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        if let Some(claims) = parts.extensions.get::<Claims>() {
-            Ok(AuthUser(claims.clone()))
-        } else {
-            Err((
-                StatusCode::UNAUTHORIZED,
-                Json(json!({
-                    "status": "error",
-                    "message": "Unauthorized"
-                })),
-            ))
+            ResponseHelper::error(&format!("Invalid token: {}", e))
         }
     }
 }

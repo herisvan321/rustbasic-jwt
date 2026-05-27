@@ -1,18 +1,11 @@
-use sea_orm::entity::prelude::*;
-use serde::{Deserialize, Serialize};
+use rustbasic_core::model;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "jwt_blacklists")]
-pub struct Model {
-    #[sea_orm(primary_key)]
-    pub id: i32,
-    #[sea_orm(unique)]
-    pub jti: String,
-    pub exp: i64,
-    pub created_at: Option<DateTime>,
+model! {
+    table: "jwt_blacklists",
+    Model {
+        pub id: i32,
+        pub jti: String,
+        pub exp: i64,
+        pub created_at: Option<chrono::NaiveDateTime>,
+    }
 }
-
-#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
-
-impl ActiveModelBehavior for ActiveModel {}

@@ -1,12 +1,12 @@
 use jsonwebtoken::{encode, decode, Header, Algorithm, Validation, EncodingKey, DecodingKey};
 use crate::claims::Claims;
 use std::env;
-use sea_orm::{DatabaseConnection, EntityTrait, ColumnTrait, QueryFilter, Set, ActiveModelTrait};
+use rustbasic_core::sqlx::AnyPool;
 use crate::entities::jwt_blacklist;
 
 pub struct JwtService {
     secret: String,
-    db: Option<DatabaseConnection>,
+    db: Option<AnyPool>,
 }
 
 impl JwtService {
@@ -15,7 +15,7 @@ impl JwtService {
         Self { secret, db: None }
     }
 
-    pub fn with_db(mut self, db: DatabaseConnection) -> Self {
+    pub fn with_db(mut self, db: AnyPool) -> Self {
         self.db = Some(db);
         self
     }
@@ -52,9 +52,9 @@ impl JwtService {
 
         // Check if blacklisted
         if let Some(db) = &self.db {
-            let is_blacklisted = jwt_blacklist::Entity::find()
-                .filter(jwt_blacklist::Column::Jti.eq(&token_data.claims.jti))
-                .one(db)
+            let is_blacklisted = jwt_blacklist::Model::query(db)
+                .where_("jti", &token_data.claims.jti)
+                .first::<jwt_blacklist::Model>()
                 .await
                 .map_err(|e| e.to_string())?;
 
@@ -70,12 +70,11 @@ impl JwtService {
         let claims = self.validate_token(token).await?;
         
         if let Some(db) = &self.db {
-            let active_model = jwt_blacklist::ActiveModel {
-                jti: Set(claims.jti),
-                exp: Set(claims.exp),
-                ..Default::default()
-            };
-            active_model.insert(db).await.map_err(|e| e.to_string())?;
+            let data = serde_json::json!({
+                "jti": claims.jti,
+                "exp": claims.exp,
+            });
+            jwt_blacklist::Model::create(db, data).await.map_err(|e| e.to_string())?;
             Ok(())
         } else {
             Err("Database connection required for invalidation".to_string())

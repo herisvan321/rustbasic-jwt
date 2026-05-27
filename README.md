@@ -2,13 +2,11 @@
 
 JWT Authentication package for the RustBasic Framework.
 
-## Features
-
 - 🔑 **Magic Scaffolding**: Automatically creates `Users` and `JwtBlacklist` migrations and models.
-- 🛡️ **Middleware**: Protect your Axum routes with `jwt_auth_middleware` (includes automatic blacklist check).
+- 🛡️ **Middleware**: Protect your routes with `jwt_auth_middleware` (includes automatic blacklist check).
 - 🚫 **Token Invalidation**: Easily invalidate tokens (blacklist) for secure logout.
 - 🔄 **Token Refresh**: Refresh old tokens for new ones with automatic invalidation.
-- 👤 **Easy Extractor**: Access the authenticated user in controllers using `AuthUser`.
+- 👤 **Request Scope**: Access the authenticated user's claims in controllers using `get_current_user()`.
 - 🛠️ **CLI Tool**: Manual scaffolding and secret generation.
 
 ## Installation
@@ -52,13 +50,13 @@ This will create:
 In your route definitions:
 
 ```rust
-use rustbasic_jwt::{jwt_auth_middleware, HasDatabase};
-use axum::{routing::get, Router, middleware};
+use rustbasic_core::{Router, get, from_fn};
+use rustbasic_jwt::jwt_auth_middleware;
 
-pub fn router(state: AppState) -> Router<AppState> {
+pub fn router() -> Router {
     Router::new()
         .route("/api/profile", get(profile_handler))
-        .layer(middleware::from_fn_with_state(state, jwt_auth_middleware::<AppState>))
+        .layer(from_fn(jwt_auth_middleware))
 }
 ```
 
@@ -67,10 +65,16 @@ pub fn router(state: AppState) -> Router<AppState> {
 In your controller handlers:
 
 ```rust
-use rustbasic_jwt::AuthUser;
+use rustbasic_core::{Response, ResponseHelper};
+use rustbasic_jwt::get_current_user;
 
-pub async fn profile_handler(AuthUser(claims): AuthUser) -> impl IntoResponse {
-    Json(json!({
+pub async fn profile_handler() -> Response {
+    let claims = match get_current_user() {
+        Some(c) => c,
+        None => return ResponseHelper::error("Unauthorized"),
+    };
+
+    ResponseHelper::json(serde_json::json!({
         "message": "Hello user!",
         "user_id": claims.sub,
         "data": claims.user_data

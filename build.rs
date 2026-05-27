@@ -63,44 +63,29 @@ fn main() {
         let migration_path = migrations_dir.join(format!("{}.rs", migration_name));
 
         let migration_template = format!(
-r#"use sea_orm_migration::prelude::*;
-use async_trait::async_trait;
+r#"use rustbasic_core::{{Schema, SchemaManager, MigrationTrait, DbErr}};
+use rustbasic_core::async_trait;
 
-#[derive(Iden)]
-pub enum Users {{
-    Table, Id, Name, Email, Password, CreatedAt, UpdatedAt,
-}}
-
-#[derive(Iden)]
 pub struct Migration;
-
-impl MigrationName for Migration {{
-    fn name(&self) -> &str {{
-        "{migration_name}"
-    }}
-}}
 
 #[async_trait]
 impl MigrationTrait for Migration {{
-    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {{
-        manager.create_table(
-            Table::create()
-                .table(Users::Table)
-                .if_not_exists()
-                .col(ColumnDef::new(Users::Id).integer().not_null().auto_increment().primary_key())
-                .col(ColumnDef::new(Users::Name).string().not_null())
-                .col(ColumnDef::new(Users::Email).string().not_null().unique_key())
-                .col(ColumnDef::new(Users::Password).string().not_null())
-                .col(ColumnDef::new(Users::CreatedAt).date_time().default(Expr::current_timestamp()))
-                .col(ColumnDef::new(Users::UpdatedAt).date_time().default(Expr::current_timestamp()))
-                .to_owned(),
-        ).await?;
+    fn name(&self) -> &str {{
+        "{migration_name}"
+    }}
+
+    async fn up<'a>(&self, manager: &'a SchemaManager<'a>) -> Result<(), DbErr> {{
+        Schema::create(manager, "users", |table| {{
+            table.string("name").not_null();
+            table.string("email").unique().not_null();
+            table.string("password").not_null();
+        }}).await?;
 
         Ok(())
     }}
 
-    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {{
-        manager.drop_table(Table::drop().table(Users::Table).to_owned()).await?;
+    async fn down<'a>(&self, manager: &'a SchemaManager<'a>) -> Result<(), DbErr> {{
+        Schema::drop(manager, "users").await?;
         Ok(())
     }}
 }}
@@ -122,42 +107,28 @@ impl MigrationTrait for Migration {{
         let migration_path = migrations_dir.join(format!("{}.rs", migration_name));
 
         let migration_template = format!(
-r#"use sea_orm_migration::prelude::*;
-use async_trait::async_trait;
+r#"use rustbasic_core::{{Schema, SchemaManager, MigrationTrait, DbErr}};
+use rustbasic_core::async_trait;
 
-#[derive(Iden)]
-pub enum JwtBlacklists {{
-    Table, Id, Jti, Exp, CreatedAt,
-}}
-
-#[derive(Iden)]
 pub struct Migration;
-
-impl MigrationName for Migration {{
-    fn name(&self) -> &str {{
-        "{migration_name}"
-    }}
-}}
 
 #[async_trait]
 impl MigrationTrait for Migration {{
-    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {{
-        manager.create_table(
-            Table::create()
-                .table(JwtBlacklists::Table)
-                .if_not_exists()
-                .col(ColumnDef::new(JwtBlacklists::Id).integer().not_null().auto_increment().primary_key())
-                .col(ColumnDef::new(JwtBlacklists::Jti).string().not_null().unique_key())
-                .col(ColumnDef::new(JwtBlacklists::Exp).big_integer().not_null())
-                .col(ColumnDef::new(JwtBlacklists::CreatedAt).date_time().default(Expr::current_timestamp()))
-                .to_owned(),
-        ).await?;
+    fn name(&self) -> &str {{
+        "{migration_name}"
+    }}
+
+    async fn up<'a>(&self, manager: &'a SchemaManager<'a>) -> Result<(), DbErr> {{
+        Schema::create(manager, "jwt_blacklists", |table| {{
+            table.string("jti").unique().not_null();
+            table.big_integer("exp").not_null();
+        }}).await?;
 
         Ok(())
     }}
 
-    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {{
-        manager.drop_table(Table::drop().table(JwtBlacklists::Table).to_owned()).await?;
+    async fn down<'a>(&self, manager: &'a SchemaManager<'a>) -> Result<(), DbErr> {{
+        Schema::drop(manager, "jwt_blacklists").await?;
         Ok(())
     }}
 }}
@@ -178,27 +149,21 @@ impl MigrationTrait for Migration {{
     
     if !file_path.exists() {
         let model_template = format!(
-r#"use rustbasic_core::sea_orm::entity::prelude::*;
-use serde::{{Deserialize, Serialize}};
+r#"use rustbasic_core::model;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "{table_name}")]
-pub struct Model {{
-    #[sea_orm(primary_key)]
-    pub id: i32,
-    pub name: String,
-    #[sea_orm(unique)]
-    pub email: String,
-    #[serde(skip_serializing)]
-    pub password: String,
-    pub created_at: Option<DateTime>,
-    pub updated_at: Option<DateTime>,
+model! {{
+    table: "{table_name}",
+    fillable: [name, email, password],
+    Model {{
+        pub id: i32,
+        pub name: String,
+        pub email: String,
+        #[serde(skip_serializing)]
+        pub password: String,
+        pub created_at: Option<chrono::NaiveDateTime>,
+        pub updated_at: Option<chrono::NaiveDateTime>,
+    }}
 }}
-
-#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {{}}
-
-impl ActiveModelBehavior for ActiveModel {{}}
 "#, table_name = table_name);
 
         if fs::write(&file_path, model_template).is_ok() {
@@ -213,24 +178,17 @@ impl ActiveModelBehavior for ActiveModel {{}}
     
     if !file_path.exists() {
         let model_template = format!(
-r#"use rustbasic_core::sea_orm::entity::prelude::*;
-use serde::{{Deserialize, Serialize}};
+r#"use rustbasic_core::model;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "{table_name}")]
-pub struct Model {{
-    #[sea_orm(primary_key)]
-    pub id: i32,
-    #[sea_orm(unique)]
-    pub jti: String,
-    pub exp: i64,
-    pub created_at: Option<DateTime>,
+model! {{
+    table: "{table_name}",
+    Model {{
+        pub id: i32,
+        pub jti: String,
+        pub exp: i64,
+        pub created_at: Option<chrono::NaiveDateTime>,
+    }}
 }}
-
-#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {{}}
-
-impl ActiveModelBehavior for ActiveModel {{}}
 "#, table_name = table_name);
 
         if fs::write(&file_path, model_template).is_ok() {
@@ -250,10 +208,9 @@ fn update_migration_mod_rs(project_root: &std::path::Path, mod_name: &str) {
     }
 
     let search_pattern = "fn migrations() -> Vec<Box<dyn MigrationTrait>> {";
-    if let Some(pos) = content.find(search_pattern) {
-        if let Some(insert_pos) = content[pos..].find("        ]") {
-            content.insert_str(pos + insert_pos, &format!("            Box::new({}::Migration),\n", mod_name));
-        }
+    if let Some(pos) = content.find(search_pattern)
+        && let Some(insert_pos) = content[pos..].find("        ]") {
+        content.insert_str(pos + insert_pos, &format!("            Box::new({}::Migration),\n", mod_name));
     }
 
     fs::write(mod_path, content).ok();
