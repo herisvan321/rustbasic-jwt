@@ -34,19 +34,17 @@ fn main() {
         if !content.contains("JWT_SECRET") {
             let mut file = fs::OpenOptions::new().append(true).open(&env_path).unwrap();
             use std::io::Write;
-            let secret = uuid::Uuid::new_v4().to_string();
+            let secret = generate_random_secret();
             writeln!(file, "\n# --- JWT CONFIG ---").ok();
             writeln!(file, "JWT_SECRET={}", secret).ok();
             writeln!(file, "JWT_TTL=60").ok();
             writeln!(file, "JWT_REFRESH_TTL=20160").ok();
             writeln!(file, "JWT_ALGO=HS256").ok();
-            println!("cargo:warning=🔑 rustbasic-jwt: Konfigurasi JWT baru ditambahkan ke .env");
         }
     } else {
-        let secret = uuid::Uuid::new_v4().to_string();
+        let secret = generate_random_secret();
         let content = format!("JWT_SECRET={}\nJWT_TTL=60\nJWT_REFRESH_TTL=20160\nJWT_ALGO=HS256\n", secret);
         fs::write(&env_path, content).ok();
-        println!("cargo:warning=🔑 rustbasic-jwt: File .env baru dibuat dengan konfigurasi JWT");
     }
 
     // 2. Create Migration for Users (if needed)
@@ -58,7 +56,7 @@ fn main() {
         .unwrap_or(false);
 
     if !existing_migrations {
-        let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S").to_string();
+        let timestamp = get_current_timestamp();
         let migration_name = format!("m{}_create_users_table", timestamp);
         let migration_path = migrations_dir.join(format!("{}.rs", migration_name));
 
@@ -102,7 +100,7 @@ impl MigrationTrait for Migration {{
         .unwrap_or(false);
 
     if !existing_blacklist {
-        let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S").to_string();
+        let timestamp = get_current_timestamp();
         let migration_name = format!("m{}_create_jwt_blacklists_table", timestamp);
         let migration_path = migrations_dir.join(format!("{}.rs", migration_name));
 
@@ -160,8 +158,8 @@ model! {{
         pub email: String,
         #[serde(skip_serializing)]
         pub password: String,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<rustbasic_core::chrono::NaiveDateTime>,
+        pub updated_at: Option<rustbasic_core::chrono::NaiveDateTime>,
     }}
 }}
 "#, table_name = table_name);
@@ -186,7 +184,7 @@ model! {{
         pub id: i32,
         pub jti: String,
         pub exp: i64,
-        pub created_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<rustbasic_core::chrono::NaiveDateTime>,
     }}
 }}
 "#, table_name = table_name);
@@ -234,4 +232,48 @@ fn update_model_mod_rs(project_root: &std::path::Path, class_name: &str, snake_n
     use std::io::Write;
     writeln!(file, "pub mod {};", snake_name).ok();
     writeln!(file, "pub use {}::Entity as {};", snake_name, class_name).ok();
+}
+
+fn get_current_timestamp() -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+    let secs = now;
+    let days = if secs >= 0 { secs / 86400 } else { (secs - 86399) / 86400 };
+    let mut rem_secs = (secs - days * 86400) as u32;
+    let hour = rem_secs / 3600;
+    rem_secs %= 3600;
+    let min = rem_secs / 60;
+    let sec = rem_secs % 60;
+
+    let z = days + 719468;
+    let era = (if z >= 0 { z } else { z - 146096 }) / 146097;
+    let doe = (z - era * 146097) as u32;
+    let yoe = (doe - doe/1460 + doe/36524 - doe/146096) / 365;
+    let mut y = (yoe as i32) + era as i32 * 400;
+    let doy = doe - (365*yoe + yoe/4 - yoe/100);
+    let mp = (5*doy + 2)/153;
+    let d = doy - (153*mp + 2)/5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    if m <= 2 {
+        y += 1;
+    }
+    format!("{:04}{:02}{:02}_{:02}{:02}{:02}", y, m, d, hour, min, sec)
+}
+
+fn generate_random_secret() -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let mut seed = now as u64;
+    let mut secret = String::new();
+    let charset = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    for _ in 0..32 {
+        seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        let idx = (seed % charset.len() as u64) as usize;
+        secret.push(charset[idx] as char);
+    }
+    secret
 }

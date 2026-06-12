@@ -5,7 +5,7 @@ use rustbasic_core::responses::ResponseHelper;
 use crate::service::JwtService;
 use crate::claims::Claims;
 
-tokio::task_local! {
+rustbasic_core::tokio::task_local! {
     pub static CURRENT_USER: Claims;
 }
 

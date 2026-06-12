@@ -1,7 +1,7 @@
-use jsonwebtoken::{encode, decode, Header, Algorithm, Validation, EncodingKey, DecodingKey};
+use rustbasic_core::jsonwebtoken::{encode, decode, Header, Algorithm, Validation, EncodingKey, DecodingKey};
 use crate::claims::Claims;
 use std::env;
-use rustbasic_core::sqlx::AnyPool;
+use rustbasic_core::sql::AnyPool;
 use crate::entities::jwt_blacklist;
 
 pub struct JwtService {
@@ -20,7 +20,7 @@ impl JwtService {
         self
     }
 
-    pub fn generate_token(&self, user_id: String, user_data: serde_json::Value) -> Result<String, jsonwebtoken::errors::Error> {
+    pub fn generate_token(&self, user_id: String, user_data: rustbasic_core::serde_json::Value) -> Result<String, rustbasic_core::jsonwebtoken::errors::Error> {
         let ttl = env::var("JWT_TTL").unwrap_or_else(|_| "60".to_string()).parse::<i64>().unwrap_or(60);
         let claims = Claims::new(user_id, user_data, ttl);
         
@@ -70,7 +70,7 @@ impl JwtService {
         let claims = self.validate_token(token).await?;
         
         if let Some(db) = &self.db {
-            let data = serde_json::json!({
+            let data = rustbasic_core::serde_json::json!({
                 "jti": claims.jti,
                 "exp": claims.exp,
             });

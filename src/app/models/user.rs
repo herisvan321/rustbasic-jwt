@@ -8,7 +8,7 @@ model! {
         pub email: String,
         #[serde(skip_serializing)]
         pub password: String,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<rustbasic_core::chrono::NaiveDateTime>,
+        pub updated_at: Option<rustbasic_core::chrono::NaiveDateTime>,
     }
 }

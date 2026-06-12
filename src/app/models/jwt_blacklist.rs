@@ -6,6 +6,6 @@ model! {
         pub id: i32,
         pub jti: String,
         pub exp: i64,
-        pub created_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<rustbasic_core::chrono::NaiveDateTime>,
     }
 }
