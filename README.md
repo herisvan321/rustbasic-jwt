@@ -37,7 +37,7 @@ JWT_ALGO=HS256          # Algorithm (HS256, HS384, HS512)
 The package automatically scaffolds the necessary files on build. You can also run it manually:
 
 ```bash
-cargo run --bin rustbasic-jwt install
+rustbasic install rustbasic-jwt
 ```
 
 This will create:
