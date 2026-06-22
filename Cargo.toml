@@ -1,6 +1,6 @@
 [package]
 name = "rustbasic-jwt"
-version = "0.0.7"
+version = "0.0.8"
 edition = "2024"
 build = "build.rs"
 description = "JWT authentication package for the RustBasic Framework."
@@ -15,5 +15,5 @@ name = "rustbasic_jwt"
 path = "src/lib.rs"
 
 [dependencies]
-rustbasic-core = { version = "0.1", features = ["jwt"] }
+rustbasic-core = { version = "0.0", features = ["jwt"] }
 
